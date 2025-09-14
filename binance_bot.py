@@ -153,7 +153,6 @@ def run():
 def keep_alive():
     t = Thread(target=run)
     t.start()
-# +++ КІНЕЦЬ НОВОГО БЛОКУ +++
 def main() -> None:
     """Основна функція для запуску бота та фонових завдань."""
     # Запускаємо веб-сервер у фоні, щоб Render не "засинав"
@@ -164,20 +163,19 @@ def main() -> None:
 
     application = Application.builder().token(TELEGRAM_TOKEN).build()
 
-    # --- ПЕРЕВІРТЕ, ЩО ВСІ ЦІ РЯДКИ ПРИСУТНІ ---
     # Реєстрація обробників команд
     application.add_handler(CommandHandler("start", start))
     application.add_handler(CommandHandler("chart", get_chart))
-    application.add_handler(CommandHandler("alert", set_alert))  # <--- Ймовірно, цей рядок відсутній
-    application.add_handler(CommandHandler("my_alerts", my_alerts))  # <--- І цей
-    application.add_handler(CommandHandler("delete_alert", delete_alert))  # <--- І цей
+    application.add_handler(CommandHandler("alert", set_alert))
+    application.add_handler(CommandHandler("my_alerts", my_alerts))
+    application.add_handler(CommandHandler("delete_alert", delete_alert))
 
     # Реєстрація обробника для inline-пошуку
     application.add_handler(InlineQueryHandler(inline_query))
 
     # Налаштування та запуск фонового завдання для перевірки цін
     job_queue = application.job_queue
-    job_queue.run_repeating(price_checker, interval=60, first=10)  # <--- І цей
+    job_queue.run_repeating(price_checker, interval=60, first=10)
     # -----------------------------------------------
 
     logger.info("Бот запускається...")
