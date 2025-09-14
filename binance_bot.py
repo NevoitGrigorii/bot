@@ -6,6 +6,8 @@ import mplfinance as mpf
 from telegram import Update, InlineQueryResultArticle, InputTextMessageContent
 from telegram.ext import Application, CommandHandler, ContextTypes, InlineQueryHandler
 from binance.client import Client
+from flask import Flask # <-- ДОДАЙТЕ ЦЕЙ ІМПОРТ
+from threading import Thread
 
 # -------------------
 #  Глобальні налаштування
@@ -127,7 +129,22 @@ async def get_chart(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 # -------------------
 #  Головна функція
 # -------------------
+
+app = Flask('')
+
+@app.route('/')
+def home():
+    return "I'm alive"
+
+def run():
+    app.run(host='0.0.0.0', port=8080)
+
+def keep_alive():
+    t = Thread(target=run)
+    t.start()
+# +++ КІНЕЦЬ НОВОГО БЛОКУ +++
 def main():
+    keep_alive()
     populate_symbols_cache()
     app = Application.builder().token(TELEGRAM_TOKEN).build()
     app.add_handler(CommandHandler("start", start))
