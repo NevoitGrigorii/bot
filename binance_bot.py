@@ -8,6 +8,7 @@ from telegram.ext import Application, CommandHandler, ContextTypes, InlineQueryH
 from binance.client import Client
 from flask import Flask
 from threading import Thread
+import matplotlib.pyplot as plt
 
 # -------------------
 #  Глобальні налаштування
