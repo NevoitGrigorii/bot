@@ -119,6 +119,7 @@ async def get_chart(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
                  ylabel="Ціна", volume=True, ylabel_lower="Об'єм", addplot=ap,
                  panel_ratios=(6,2,3), figratio=(16,9), savefig=dict(fname=buf, dpi=150))
         buf.seek(0)
+        plt.close('all')
 
         await context.bot.delete_message(chat_id=update.effective_chat.id, message_id=status_message.message_id)
         # --- Розрахунок даних для підпису ---
