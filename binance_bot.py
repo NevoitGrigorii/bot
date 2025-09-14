@@ -6,7 +6,7 @@ import mplfinance as mpf
 from telegram import Update, InlineQueryResultArticle, InputTextMessageContent
 from telegram.ext import Application, CommandHandler, ContextTypes, InlineQueryHandler
 from binance.client import Client
-from flask import Flask # <-- ДОДАЙТЕ ЦЕЙ ІМПОРТ
+from flask import Flask
 from threading import Thread
 
 # -------------------
@@ -121,7 +121,18 @@ async def get_chart(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         buf.seek(0)
 
         await context.bot.delete_message(chat_id=update.effective_chat.id, message_id=status_message.message_id)
-        await update.message.reply_photo(photo=buf, caption=f"📊 {symbol} ({interval})", parse_mode="Markdown")
+        # --- Розрахунок даних для підпису ---
+        last_price = df_to_plot['Close'].iloc[-1]
+        high_price = df_to_plot['High'].max()
+        low_price = df_to_plot['Low'].min()
+
+        caption_text = (f"**{symbol} | {interval} | {days} днів**\n\n"
+                        f"**Остання ціна:** `{last_price:,.2f}`\n"
+                        f"**Максимум:** `{high_price:,.2f}`\n"
+                        f"**Мінімум:** `{low_price:,.2f}`")
+
+        # --- Надсилання фото з детальним підписом ---
+        await update.message.reply_photo(photo=buf, caption=caption_text, parse_mode='Markdown')
     except Exception as e:
         logger.error(f"Помилка графіка: {e}")
         await update.message.reply_text("⚠️ Помилка при побудові графіка.")
