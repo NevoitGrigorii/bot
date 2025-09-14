@@ -137,6 +137,114 @@ async def get_chart(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         logger.error(f"Помилка графіка: {e}")
         await update.message.reply_text("⚠️ Помилка при побудові графіка.")
 
+
+async def set_alert(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Встановлює нове сповіщення про ціну з перевіркою символу."""
+    chat_id = update.effective_chat.id
+    try:
+        if len(context.args) != 3:
+            await update.message.reply_text("Неправильний формат. Приклад: `/alert BTCUSDT > 65000`")
+            return
+
+        symbol = context.args[0].upper()
+        condition = context.args[1]
+        price = float(context.args[2])
+
+        try:
+            binance_client.get_symbol_ticker(symbol=symbol)
+            logger.info(f"Символ {symbol} успішно перевірено.")
+        except Exception as e:
+            logger.error(f"Недійсний символ {symbol} від {chat_id}: {e}")
+            await update.message.reply_text(f"Помилка: торгова пара '{symbol}' не знайдена на Binance.")
+            return
+
+        if condition not in ['>', '<']:
+            await update.message.reply_text("Умова може бути тільки '>' (більше) або '<' (менше).")
+            return
+
+        alert = {'symbol': symbol, 'condition': condition, 'price': price}
+
+        if chat_id not in user_alerts:
+            user_alerts[chat_id] = []
+
+        user_alerts[chat_id].append(alert)
+        logger.info(f"Встановлено нове сповіщення для {chat_id}: {alert}")
+        await update.message.reply_text(f"✅ Сповіщення для **{symbol}** встановлено!", parse_mode='Markdown')
+
+    except (ValueError, IndexError):
+        await update.message.reply_text("Помилка. Перевірте, чи правильно введена ціна.")
+
+
+async def my_alerts(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Показує активні сповіщення користувача."""
+    chat_id = update.effective_chat.id
+    if chat_id not in user_alerts or not user_alerts[chat_id]:
+        await update.message.reply_text("У вас немає активних сповіщень.")
+        return
+
+    message = "📋 **Ваші активні сповіщення:**\n"
+    for i, alert in enumerate(user_alerts[chat_id]):
+        message += f"{i + 1}. **{alert['symbol']}** {alert['condition']} {alert['price']}\n"
+
+    await update.message.reply_text(message, parse_mode='Markdown')
+
+
+async def delete_alert(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Видаляє сповіщення за його номером."""
+    chat_id = update.effective_chat.id
+    try:
+        if len(context.args) != 1:
+            await update.message.reply_text("Вкажіть номер сповіщення для видалення. Наприклад: `/delete_alert 1`")
+            return
+
+        alert_index = int(context.args[0]) - 1
+
+        if chat_id in user_alerts and 0 <= alert_index < len(user_alerts[chat_id]):
+            removed_alert = user_alerts[chat_id].pop(alert_index)
+            logger.info(f"Видалено сповіщення для {chat_id}: {removed_alert}")
+            await update.message.reply_text(f"🗑️ Сповіщення для **{removed_alert['symbol']}** видалено.",
+                                            parse_mode='Markdown')
+        else:
+            await update.message.reply_text("Неправильний номер сповіщення.")
+
+    except (ValueError, IndexError):
+        await update.message.reply_text("Будь ласка, введіть правильний номер.")
+
+
+async def price_checker(context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Періодично перевіряє ціни для всіх встановлених сповіщень."""
+    if not user_alerts:
+        return
+
+    alerts_to_remove = {}
+
+    for chat_id, alerts in user_alerts.items():
+        for i, alert in enumerate(alerts):
+            try:
+                symbol, condition, target_price = alert['symbol'], alert['condition'], alert['price']
+
+                ticker = binance_client.get_symbol_ticker(symbol=symbol)
+                current_price = float(ticker['price'])
+
+                condition_met = (condition == '>' and current_price > target_price) or \
+                                (condition == '<' and current_price < target_price)
+
+                if condition_met:
+                    message = (f"🔔 **Спрацювало сповіщення!** 🔔\n\n"
+                               f"**{symbol}** досяг ціни **{current_price:,.2f}**\n"
+                               f"(умова: {condition} {target_price})")
+                    await context.bot.send_message(chat_id=chat_id, text=message, parse_mode='Markdown')
+
+                    if chat_id not in alerts_to_remove:
+                        alerts_to_remove[chat_id] = []
+                    alerts_to_remove[chat_id].append(i)
+            except Exception as e:
+                logger.error(f"Помилка перевірки ціни для {alert}: {e}")
+
+    for chat_id, indices in alerts_to_remove.items():
+        for index in sorted(indices, reverse=True):
+            user_alerts[chat_id].pop(index)
+
 # -------------------
 #  Головна функція
 # -------------------
